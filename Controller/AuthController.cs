@@ -23,10 +23,14 @@ namespace OpsFlow.Controller
         private readonly DataContextEF _context = context;
         private readonly IConfiguration _config = config;
 
-        [HttpGet("getuser")]
-        public async Task<IEnumerable<User>> TestingGetUser()
+        [Authorize]
+        [HttpGet("profile")]
+        public IActionResult Profile()
         {
-            return await _context.Users.ToListAsync();
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            return Ok(new { userId, role });
         }
 
         [HttpPost("register")]
@@ -134,6 +138,9 @@ namespace OpsFlow.Controller
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
             return Ok(role);
         }
+
+
+
     }
 
 
