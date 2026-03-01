@@ -20,7 +20,7 @@ namespace OpsFlow.Controller
 
         //Create Project
         [HttpPost]
-        public async Task<IActionResult> NewProject(NewProjectDtos dto)
+        public async Task<IActionResult> NewProject(NewProjectDto dto)
         {
             var project = new Project
             {
