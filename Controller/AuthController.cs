@@ -16,7 +16,7 @@ namespace OpsFlow.Controller
 {
 
     [ApiController]
-    [Route("[controller]")]
+    [Route("api/[controller]")]
     public class AuthController(DataContextEF context, IConfiguration config) : ControllerBase
     {
         //Setup the datacontext
