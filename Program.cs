@@ -88,15 +88,14 @@ builder.Services.AddAuthorization();
 
 
 var app = builder.Build();
-if (app.Environment.IsDevelopment())
+
+app.UseCors(app.Environment.IsDevelopment() ? "DevCors" : "ProdCors");
+
+app.UseSwagger();
+app.UseSwaggerUI();
+
+if (!app.Environment.IsDevelopment())
 {
-    app.UseCors("DevCors");
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-else
-{
-    app.UseCors("ProdCors");
     app.UseHttpsRedirection();
 }
 
@@ -105,6 +104,4 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-
 app.Run();
-
