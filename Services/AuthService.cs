@@ -1,23 +1,20 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OpsFlow.Data;
 using OpsFlow.Models;
 
 namespace OpsFlow.Services
 {
-    public class AuthService(DataContextEF context, IConfiguration config)
+    public class AuthService(IConfiguration config)
     {
         private readonly IConfiguration _config = config;
-        private readonly DataContextEF _context = context;
 
-        public async Task<string> GenerateJwt(User user, string roleName)
+        public string GenerateJwt(User user, string roleName)
         {
-            //Before sending the Claim we need to generate the role of the user
-            var role = await _context.Roles
-                        .FirstOrDefaultAsync(r => r.Id == user.RoleId);
+
             //Create Claims (info inside the token)
             var claims = new List<Claim>
                 {
@@ -25,7 +22,6 @@ namespace OpsFlow.Services
                     new Claim(ClaimTypes.Name, user.Name),
                     new Claim(ClaimTypes.Email, user.Email),
                     new Claim(ClaimTypes.Role, roleName)
-
                 };
 
             //Create Signing Keys = 

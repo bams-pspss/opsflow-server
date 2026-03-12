@@ -40,6 +40,9 @@ namespace OpsFlow.Controller
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterUserDto dto)
         {
+            //ensure email is lowercase and check it
+            dto.Email = dto.Email.Trim().ToLower();
+
             //Check if the email is there
             if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
             {
@@ -54,18 +57,27 @@ namespace OpsFlow.Controller
                 Email = dto.Email,
                 Name = dto.Name,
                 PasswordHash = passwordHash,
-                RoleId = 3,
+                RoleId = 1, //user only
                 IsActive = true
             };
 
+            //Add user into database
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            return Ok(
-                new
-                {
-                    message = "User Created Successfully!",
-                });
+            //Before sending the Claim we need to generate the role of the user
+            var role = await _context.Roles
+                        .FirstOrDefaultAsync(r => r.Id == user.RoleId);
+
+            //Create TOKEN!
+            var jwt = _authService.GenerateJwt(user, role!.Name);
+
+            return Ok(new
+            {
+                token = jwt,
+                expiresInMinutes = 60,
+                user = new { user.Id, user.Name, user.Email, user.RoleId }
+            });
         }
 
 
@@ -76,25 +88,25 @@ namespace OpsFlow.Controller
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == login.Email);
 
             if (user == null)
-                return Unauthorized("Invalid credentials.");
-
+                return Unauthorized(new { message = "Invalid credentials." });
             // 2) Verify password
             bool isMatch = BCrypt.Net.BCrypt.Verify(login.Password, user.PasswordHash);
 
             if (!isMatch)
-                return Unauthorized("Invalid credentials.");
+                return Unauthorized(new { message = "Invalid credentials." });
 
             //Before sending the Claim we need to generate the role of the user
             var role = await _context.Roles
                         .FirstOrDefaultAsync(r => r.Id == user.RoleId);
 
             //Create TOKEN!
-            var jwt = await _authService.GenerateJwt(user, role!.Name);
+            var jwt = _authService.GenerateJwt(user, role!.Name);
+
             return Ok(new
             {
                 token = jwt,
                 expiresInMinutes = 60,
-                user = new { user.Id, user.Email, user.RoleId }
+                user = new { user.Id, user.Name, user.Email, user.RoleId }
             });
         }
 
@@ -120,7 +132,6 @@ namespace OpsFlow.Controller
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
             return Ok(role);
         }
-
 
 
     }
