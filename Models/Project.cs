@@ -8,7 +8,8 @@ namespace OpsFlow.Models
         public string? Description { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
+        public DateTime DueDate { get; set; }
+        public ProjectStatus Status { get; set; } = ProjectStatus.Incomplete;
         public ICollection<TaskItem> Tasks { get; set; } = new List<TaskItem>();
         public ICollection<ProjectMember> Members { get; set; } = new List<ProjectMember>();
     }

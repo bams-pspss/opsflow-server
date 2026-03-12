@@ -34,11 +34,15 @@ namespace OpsFlow.Controller
             return Ok("New Project Added!");
         }
 
-        //Get ALL Project
-        [HttpGet]
-        public async Task<IActionResult> GetAllProjects()
+        //Get ALL Project by UserId
+        [HttpGet("{userId}")]
+        public async Task<IActionResult> GetAllProjects(int userId)
         {
-            var projects = await _context.Projects.ToListAsync();
+            var projects = await _context.Projects.FindAsync(userId);
+
+            if (projects == null)
+                return NotFound("Project not found.");
+
             return Ok(projects);
         }
 

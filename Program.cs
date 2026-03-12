@@ -40,7 +40,11 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddDbContext<DataContextEF>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection"),
-        sqlOptions => sqlOptions.EnableRetryOnFailure()
+          sqlOptions =>
+        {
+            sqlOptions.EnableRetryOnFailure();
+            sqlOptions.CommandTimeout(60); // 🔥 increase timeout
+        }
     ));
 
 builder.Services.AddCors((options) =>
