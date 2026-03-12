@@ -10,6 +10,7 @@ using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
+using OpsFlow.Services;
 
 
 namespace OpsFlow.Controller
@@ -17,12 +18,15 @@ namespace OpsFlow.Controller
 
     [ApiController]
     [Route("api/[controller]")]
-    public class AuthController(DataContextEF context, IConfiguration config) : ControllerBase
+    public class AuthController(DataContextEF context, IConfiguration config, AuthService authService) : ControllerBase
     {
         //Setup the datacontext
         private readonly DataContextEF _context = context;
         private readonly IConfiguration _config = config;
+        private readonly AuthService _authService = authService;
 
+
+        //Get user Profile through Token
         [Authorize]
         [HttpGet("profile")]
         public IActionResult Profile()
@@ -39,7 +43,7 @@ namespace OpsFlow.Controller
             //Check if the email is there
             if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
             {
-                return BadRequest("Email already exists.");
+                return BadRequest(new { message = "Email already exists." });
             }
 
             //Using lib called bcrypt = to salt and has it automatically
@@ -50,13 +54,18 @@ namespace OpsFlow.Controller
                 Email = dto.Email,
                 Name = dto.Name,
                 PasswordHash = passwordHash,
-                RoleId = 3
+                RoleId = 3,
+                IsActive = true
             };
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            return Ok("User registered successfully");
+            return Ok(
+                new
+                {
+                    message = "User Created Successfully!",
+                });
         }
 
 
@@ -75,39 +84,12 @@ namespace OpsFlow.Controller
             if (!isMatch)
                 return Unauthorized("Invalid credentials.");
 
-
             //Before sending the Claim we need to generate the role of the user
             var role = await _context.Roles
                         .FirstOrDefaultAsync(r => r.Id == user.RoleId);
-            // 3) Create claims (info stored inside token)
-            var claims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                    new Claim(ClaimTypes.Email, user.Email),
-                    new Claim(ClaimTypes.Role, role!.Name)
-                };
 
-            // 4) Create signing key
-            var key = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(_config["Jwt:Key"]!)
-            );
-
-            // 5) Create credentials
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            // 6) Create the token
-            var token = new JwtSecurityToken(
-                issuer: _config["Jwt:Issuer"],
-                audience: _config["Jwt:Audience"],
-                claims: claims,
-                expires: DateTime.UtcNow.AddHours(1),
-                signingCredentials: creds
-            );
-
-            // 7) Convert token object to string
-            var jwt = new JwtSecurityTokenHandler().WriteToken(token);
-
-            // 8) Return token to client
+            //Create TOKEN!
+            var jwt = await _authService.GenerateJwt(user, role!.Name);
             return Ok(new
             {
                 token = jwt,
