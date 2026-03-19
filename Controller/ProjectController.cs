@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -34,29 +35,33 @@ namespace OpsFlow.Controller
             return Ok("New Project Added!");
         }
 
-        //Get ALL Project by UserId
-        [HttpGet("{userId}")]
-        public async Task<IActionResult> GetAllProjects(int userId)
-        {
-            var projects = await _context.Projects.FindAsync(userId);
 
-            if (projects == null)
-                return NotFound("Project not found.");
+        //Get ALL Project by UserId
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> GetAllProjects()
+        {
+            //Get UserId from token
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (userId == null)
+                return Unauthorized();
+
+            var userIdInt = int.Parse(userId);
+
+            //Query out Project by userId
+            var projects = await _context.ProjectMembers
+                .Where(pm => pm.UserId == userIdInt)
+                .Select(pm => pm.Project)
+                .ToListAsync();
+
+
+            if (projects == null || projects.Count == 0)
+                return NotFound(new { message = "No Projects" });
 
             return Ok(projects);
         }
 
-        //Get Project By Id
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetProjectById(int id)
-        {
-            var project = await _context.Projects.FindAsync(id);
-
-            if (project == null)
-                return NotFound("Project not found.");
-
-            return Ok(project);
-        }
 
 
         //Edit Project

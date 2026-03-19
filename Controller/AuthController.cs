@@ -33,8 +33,10 @@ namespace OpsFlow.Controller
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            var userName = User.FindFirst(ClaimTypes.Name)?.Value;
 
-            return Ok(new { userId, role });
+
+            return Ok(new { userId, role, userName });
         }
 
         [HttpPost("register")]
@@ -57,7 +59,7 @@ namespace OpsFlow.Controller
                 Email = dto.Email,
                 Name = dto.Name,
                 PasswordHash = passwordHash,
-                RoleId = 1, //user only
+                RoleId = 2, //user only
                 IsActive = true
             };
 

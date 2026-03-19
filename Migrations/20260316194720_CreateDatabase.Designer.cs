@@ -12,8 +12,8 @@ using OpsFlow.Data;
 namespace OpsFlow.API.Migrations
 {
     [DbContext(typeof(DataContextEF))]
-    [Migration("20260311230639_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260316194720_CreateDatabase")]
+    partial class CreateDatabase
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
