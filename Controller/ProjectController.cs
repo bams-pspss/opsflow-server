@@ -23,16 +23,43 @@ namespace OpsFlow.Controller
         [HttpPost]
         public async Task<IActionResult> NewProject(NewProjectDto dto)
         {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (userId == null)
+                return Unauthorized();
+
+            var userIdInt = int.Parse(userId);
+
+
+            //Add new Project to Proejct Table
             var project = new Project
             {
                 Name = dto.Name,
-                Description = dto.Description
+                Description = dto.Description,
+                DueDate = dto.DueDate
             };
 
             _context.Projects.Add(project);
             await _context.SaveChangesAsync();
 
-            return Ok("New Project Added!");
+
+            //Add the project to ProjectMember table
+            var projectMem = new ProjectMember
+            {
+                ProjectId = project.Id,
+                UserId = userIdInt,
+                Role = "Owner"
+            };
+            _context.ProjectMembers.Add(projectMem);
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                id = project.Id,
+                name = project.Name,
+                description = project.Description,
+                dueDate = project.DueDate
+            });
         }
 
 
@@ -84,14 +111,43 @@ namespace OpsFlow.Controller
 
         //Delete Project
         //Admin Only
-        [Authorize(Roles = "Admin")]
+        [Authorize]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProject(int id)
         {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (userId == null)
+                return Unauthorized();
+
+            var userIdInt = int.Parse(userId);
+
             var project = await _context.Projects.FindAsync(id);
 
             if (project == null)
                 return NotFound("Project not found.");
+
+            // ⭐ Check system admin
+            var systemRole = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (systemRole == "Admin")
+            {
+                _context.Projects.Remove(project);
+                await _context.SaveChangesAsync();
+                return Ok("Project deleted by system admin.");
+            }
+
+            // ⭐ Check project owner
+            var membership = await _context.ProjectMembers
+                .FirstOrDefaultAsync(pm =>
+                    pm.ProjectId == id &&
+                    pm.UserId == userIdInt);
+
+            if (membership == null)
+                return Forbid(); // not part of project
+
+            if (membership.Role != "Owner")
+                return Forbid(); // not owner
 
             _context.Projects.Remove(project);
             await _context.SaveChangesAsync();

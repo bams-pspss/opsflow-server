@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +10,7 @@ namespace OpsFlow.Controller
 {
 
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/projects/{projectId}/tasks")]
     [Authorize]
     public class TaskController(DataContextEF context, IConfiguration config) : ControllerBase
     {
@@ -18,16 +19,42 @@ namespace OpsFlow.Controller
         private readonly IConfiguration _config = config;
 
         // 1️⃣ Create Task
+        [Authorize]
         [HttpPost]
-        public async Task<IActionResult> CreateTask(NewTaskDto dto)
+        public async Task<IActionResult> CreateTask(int projectId, NewTaskDto dto)
         {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (userId == null)
+                return Unauthorized();
+
+            var userIdInt = int.Parse(userId);
+
+            var isMember = await _context.ProjectMembers
+                .AnyAsync(pm =>
+                    pm.ProjectId == projectId &&
+                    pm.UserId == userIdInt);
+
+            if (!isMember)
+                return Forbid();
+
+            if (dto.AssignedUserId != null)
+            {
+                var isAssignedValid = await _context.ProjectMembers
+                    .AnyAsync(pm =>
+                        pm.ProjectId == projectId &&
+                        pm.UserId == dto.AssignedUserId);
+
+                if (!isAssignedValid)
+                    return BadRequest("Assigned user is not in this project.");
+            }
             var task = new TaskItem
             {
                 Title = dto.Title,
                 Description = dto.Description,
                 DueDate = dto.DueDate,
-                ProjectId = dto.ProjectId,
-                AssignedUserId = dto.AssignedUserId
+                ProjectId = projectId, // ⭐ from URL
+                AssignedUserId = null,
             };
 
             _context.Tasks.Add(task);
@@ -37,69 +64,44 @@ namespace OpsFlow.Controller
         }
 
 
-        // 2️⃣ Get All Tasks
-        [HttpGet]
-        public async Task<IActionResult> GetAllTasks()
-        {
-            var tasks = await _context.Tasks.ToListAsync();
-            return Ok(tasks);
-        }
-
-        // 3️⃣ Get Task By Id
-        [HttpGet("{id}")]
-
-        public async Task<IActionResult> GetTaskById(int id)
-        {
-            var task = await _context.Tasks.FindAsync(id);
-
-            if (task == null)
-                return NotFound("Project not found.");
-
-            return Ok(task);
-        }
 
         // 4️⃣ Get Tasks By ProjectId
-        [HttpGet("project/{projectId}")]
-        public async Task<IActionResult> GetTaskByProjectId(int projectId)
+        [HttpGet]
+        public async Task<IActionResult> GetTasks(int projectId)
         {
             var tasks = await _context.Tasks
                 .Where(t => t.ProjectId == projectId)
                 .ToListAsync();
 
-            if (tasks == null)
-            {
-                return NotFound("No Task found");
-            }
-
-            return Ok(tasks);
+            return Ok(tasks); // empty list is OK
         }
 
         // 5️⃣ Update Task
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateTask(int id, UpdateTaskDto dto)
+        [HttpPut("{taskId}")]
+        public async Task<IActionResult> UpdateTask(int projectId, int taskId, UpdateTaskDto dto)
         {
-            var task = await _context.Tasks.FindAsync(id);
+            var task = await _context.Tasks.FindAsync(taskId);
 
-            if (task == null)
-                return NotFound("Tasks not found.");
+            if (task == null || task.ProjectId != projectId)
+                return NotFound("Task not found.");
 
             task.Title = dto.Title;
             task.Description = dto.Description;
             task.DueDate = dto.DueDate;
 
             await _context.SaveChangesAsync();
+
             return Ok(task);
         }
 
 
         // 6️⃣ Delete Task
-        [Authorize(Roles = "Admin")]
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteTask(int id)
+        [HttpDelete("{taskId}")]
+        public async Task<IActionResult> DeleteTask(int projectId, int taskId)
         {
-            var task = await _context.Tasks.FindAsync(id);
+            var task = await _context.Tasks.FindAsync(taskId);
 
-            if (task == null)
+            if (task == null || task.ProjectId != projectId)
                 return NotFound("Task not found.");
 
             _context.Tasks.Remove(task);
